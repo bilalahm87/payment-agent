@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Society Union Office Dashboard</title>
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height:100vh; padding:20px; }
+        .dashboard-container { max-width:1200px; margin:0 auto; background:white; border-radius:15px; overflow:hidden; box-shadow:0 20px 40px rgba(0,0,0,0.1); }
+        .dashboard-header { background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%); color:white; padding:30px; text-align:center; }
+        .dashboard-header h1 { font-size:2.5em; margin-bottom:10px; }
+        .dashboard-header p { opacity:0.9; font-size:1.1em; }
+        .stats-container { display:grid; grid-template-columns:repeat(auto-fit,minmax(250px,1fr)); gap:20px; padding:30px; background:#f8f9fa; }
+        .stat-card { background:white; padding:25px; border-radius:10px; text-align:center; box-shadow:0 5px 15px rgba(0,0,0,0.08); border-left:5px solid; }
+        .stat-card.total-collection { border-left-color:#28a745; }
+        .stat-card.total-payments { border-left-color:#007bff; }
+        .stat-card.pending-payments { border-left-color:#ffc107; }
+        .stat-card.defaulters { border-left-color:#dc3545; }
+        .stat-number { font-size:2.5em; font-weight:bold; margin-bottom:10px; }
+        .stat-label { color:#6c757d; font-size:1.1em; }
+        .dashboard-content { padding:30px; }
+        .section { margin-bottom:40px; }
+        .section-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; padding-bottom:15px; border-bottom:2px solid #e9ecef; }
+        .section-title { font-size:1.8em; color:#2c3e50; font-weight:bold; }
+        .btn { padding:12px 24px; border:none; border-radius:8px; cursor:pointer; font-size:14px; font-weight:bold; text-transform:uppercase; transition:all 0.3s; text-decoration:none; display:inline-block; }
+        .btn-primary { background: linear-gradient(135deg, #007bff, #0056b3); color:white; }
+        .btn-success { background: linear-gradient(135deg, #28a745, #1e7e34); color:white; }
+        .btn-danger { background: linear-gradient(135deg, #dc3545, #c82333); color:white; }
+        .btn:hover { transform: translateY(-2px); box-shadow:0 5px 15px rgba(0,0,0,0.2); }
+        .payments-table { width:100%; border-collapse:collapse; margin-top:20px; background:white; border-radius:10px; overflow:hidden; box-shadow:0 5px 15px rgba(0,0,0,0.08); }
+        .payments-table th { background:#343a40; color:white; padding:15px; text-align:left; font-weight:bold; }
+        .payments-table td { padding:15px; border-bottom:1px solid #e9ecef; }
+        .payments-table tr:hover { background:#f8f9fa; }
+        .status-badge { padding:6px 12px; border-radius:20px; font-size:12px; font-weight:bold; text-transform:uppercase; }
+        .status-paid { background:#d4edda; color:#155724; }
+        .status-pending { background:#fff3cd; color:#856404; }
+        .receipt-link { color:#007bff; text-decoration:none; padding:4px 8px; border-radius:4px; background:#e3f2fd; }
+        .receipt-link:hover { background:#bbdefb; }
+        .modal { display:none; position:fixed; z-index:1000; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,0.5); }
+        .modal-content { background:white; margin:10% auto; padding:30px; border-radius:15px; width:90%; max-width:500px; position:relative; }
+        .modal-header { font-size:1.5em; margin-bottom:20px; color:#2c3e50; font-weight:bold; }
+        .form-group { margin-bottom:20px; }
+        .form-group label { display:block; margin-bottom:8px; font-weight:bold; color:#495057; }
+        .form-group input, .form-group select { width:100%; padding:12px; border:2px solid #e9ecef; border-radius:8px; font-size:16px; }
+        .form-group input:focus, .form-group select:focus { outline:none; border-color:#007bff; }
+        .close { position:absolute; right:20px; top:15px; font-size:30px; cursor:pointer; color:#adb5bd; }
+        .close:hover { color:#dc3545; }
+        .search-box, .month-filter { width:100%; max-width:400px; padding:12px; border:2px solid #e9ecef; border-radius:8px; font-size:16px; margin-bottom:20px; }
+        .search-box:focus, .month-filter:focus { outline:none; border-color:#007bff; }
+        .defaulters-list { background:#fff5f5; border:1px solid #fed7d7; border-radius:10px; padding:20px; }
+        .defaulter-item { display:flex; justify-content:space-between; align-items:center; padding:15px; border-bottom:1px solid #fed7d7; margin-bottom:10px; }
+        .defaulter-item:last-child { border-bottom:none; margin-bottom:0; }
+        .defaulter-info { flex:1; }
+        .defaulter-name { font-weight:bold; font-size:1.1em; color:#2c3e50; }
+        .defaulter-details { color:#6c757d; margin-top:5px; }
+        .loader { border:6px solid #f3f3f3; border-top:6px solid #007bff; border-radius:50%; width:40px; height:40px; animation:spin 1s linear infinite; position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); display:none; z-index:100; }
+        @keyframes spin { 0% { transform:rotate(0deg); } 100% { transform:rotate(360deg); } }
+    </style>
+</head>
+<body>
+    <div class="dashboard-container">
+        <div class="dashboard-header">
+            <h1>Society Union Office</h1>
+            <p>Payment Management Dashboard</p>
+        </div>
+        <div class="stats-container">
+            <div class="stat-card total-collection">
+                <div class="stat-number" id="totalCollection">Rs. 0</div>
+                <div class="stat-label">Total Collection</div>
+            </div>
+            <div class="stat-card total-payments">
+                <div class="stat-number" id="totalPayments">0</div>
+                <div class="stat-label">Payments Received</div>
+            </div>
+            <div class="stat-card pending-payments">
+                <div class="stat-number" id="pendingPayments">0</div>
+                <div class="stat-label">Pending Payments</div>
+            </div>
+            <div class="stat-card defaulters">
+                <div class="stat-number" id="defaultersCount">0</div>
+                <div class="stat-label">Defaulters</div>
+            </div>
+        </div>
+        <div class="dashboard-content">
+            <div class="section">
+                <div class="section-header">
+                    <h2 class="section-title">Recent Payments</h2>
+                    <div>
+                        <button class="btn btn-primary" onclick="refreshData()">Refresh Data</button>
+                        <button class="btn btn-success" onclick="openManualEntryModal()">Manual Entry</button>
+                    </div>
+                </div>
+                <select id="monthFilter" class="month-filter" onchange="refreshData()">
+                    <option value="all">All Months</option>
+                    <option value="01">January</option>
+                    <option value="02">February</option>
+                    <option value="03">March</option>
+                    <option value="04">April</option>
+                    <option value="05">May</option>
+                    <option value="06">June</option>
+                    <option value="07">July</option>
+                    <option value="08">August</option>
+                    <option value="09">September</option>
+                    <option value="10">October</option>
+                    <option value="11">November</option>
+                    <option value="12">December</option>
+                </select>
+                <input type="text" class="search-box" id="searchBox" placeholder="Search by name or house number..." onkeyup="filterPayments()">
+                <div id="loader" class="loader"></div>
+                <table class="payments-table" id="paymentsTable">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Name</th>
+                            <th>House #</th>
+                            <th>Amount</th>
+                            <th>Type</th>
+                            <th>Other Details</th>
+                            <th>Receipt</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="paymentsTableBody"></tbody>
+                </table>
+            </div>
+            <div class="section">
+                <div class="section-header">
+                    <h2 class="section-title">Defaulters List</h2>
+                    <button class="btn btn-danger" onclick="sendReminders()">Send WhatsApp Reminders</button>
+                </div>
+                <div class="defaulters-list" id="defaultersList"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Manual Entry Modal -->
+    <div id="manualEntryModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeManualEntryModal()">&times;</span>
+            <div class="modal-header">Manual Payment Entry</div>
+            <form id="manualEntryForm">
+                <div class="form-group"><label for="manualName">Name:</label><input type="text" id="manualName" name="name" required></div>
+                <div class="form-group"><label for="manualHouseNumber">House Number:</label><input type="text" id="manualHouseNumber" name="houseNumber" required></div>
+                <div class="form-group"><label for="manualAmount">Amount:</label><input type="number" id="manualAmount" name="amount" required></div>
+                <div class="form-group">
+                    <label for="manualPaymentType">Payment Type:</label>
+                    <select id="manualPaymentType" name="paymentType" required>
+                        <option value="">Select Type</option>
+                        <option value="Maintenance">Maintenance</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+                <div class="form-group"><label for="manualOtherDetails">Other Details (if Other type):</label><input type="text" id="manualOtherDetails" name="otherDetails"></div>
+                <div class="form-group"><label for="manualWhatsApp">WhatsApp Number:</label><input type="text" id="manualWhatsApp" name="whatsappNumber"></div>
+                <button type="submit" class="btn btn-success">Add Payment</button>
+            </form>
+        </div>
+    </div>
+
+<script>
+    const WEBHOOK_URL = 'https://bilal87.app.n8n.cloud/webhook/dashboard-data';
+    let paymentsData = [];
+    let allHouseNumbers = [];
+
+    async function loadLiveData() {
+        try {
+            const res = await fetch(WEBHOOK_URL);
+            paymentsData = await res.json();
+            allHouseNumbers = [...new Set(paymentsData.map(p => p.houseNumber))];
+        } catch (e) {
+            console.error("Error fetching live data", e);
+            paymentsData = [];
+            allHouseNumbers = [];
+        }
+    }
+
+    async function refreshData() {
+        const loader = document.getElementById('loader');
+        loader.style.display = 'block';
+        document.getElementById('totalCollection').textContent = 'Loading...';
+        document.getElementById('totalPayments').textContent = 'Loading...';
+
+        await loadLiveData();
+
+        const month = document.getElementById('monthFilter').value;
+        let filteredData = paymentsData;
+        if (month !== 'all') {
+            filteredData = paymentsData.filter(p => new Date(p.date).getMonth() + 1 === parseInt(month));
+        }
+
+        updateStats(filteredData);
+        displayPayments(filteredData);
+        displayDefaulters(filteredData);
+
+        loader.style.display = 'none';
+    }
+
+    function updateStats(data) {
+        const totalCollection = data.reduce((sum, p) => sum + p.amount, 0);
+        const totalPayments = data.length;
+        const paidHouseNumbers = [...new Set(data.map(p => p.houseNumber))];
+        const pendingPayments = allHouseNumbers.length - paidHouseNumbers.length;
+
+        document.getElementById('totalCollection').textContent = `Rs. ${totalCollection.toLocaleString()}`;
+        document.getElementById('totalPayments').textContent = totalPayments;
+        document.getElementById('pendingPayments').textContent = pendingPayments;
+        document.getElementById('defaultersCount').textContent = pendingPayments;
+    }
+
+    function displayPayments(data) {
+        const tbody = document.getElementById('paymentsTableBody');
+        tbody.innerHTML = '';
+        data.slice().reverse().forEach(p => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${new Date(p.date).toLocaleDateString()}</td>
+                <td>${p.name}</td>
+                <td>${p.houseNumber}</td>
+                <td>Rs. ${p.amount.toLocaleString()}</td>
+                <td>${p.paymentType}</td>
+                <td>${p.otherDetails || '-'}</td>
+                <td>${p.receipt ? `<a href="${p.receipt}" target="_blank" class="receipt-link">View</a>` : '-'}</td>
+                <td><span class="status-badge status-paid">${p.status}</span></td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    function displayDefaulters(data) {
+        const defaultersList = document.getElementById('defaultersList');
+        const paidHouseNumbers = [...new Set(data.map(p => p.houseNumber))];
+        const defaulters = allHouseNumbers.filter(h => !paidHouseNumbers.includes(h));
+        defaultersList.innerHTML = '';
+        if (!defaulters.length) {
+            defaultersList.innerHTML = '<p style="text-align:center;color:#28a745;font-size:1.2em;">🎉 No defaulters! Everyone has paid.</p>';
+            return;
+        }
+        defaulters.forEach(house => {
+            const item = document.createElement('div');
+            item.className = 'defaulter-item';
+            item.innerHTML = `
+                <div class="defaulter-info">
+                    <div class="defaulter-name">House ${house}</div>
+                    <div class="defaulter-details">Maintenance fee pending - Rs. 1,500</div>
+                </div>
+                <button class="btn btn-danger" onclick="sendIndividualReminder('${house}')">Send Reminder</button>
+            `;
+            defaultersList.appendChild(item);
+        });
+    }
+
+    function filterPayments() {
+        const term = document.getElementById('searchBox').value.toLowerCase();
+        document.querySelectorAll('#paymentsTableBody tr').forEach(row => {
+            row.style.display = row.textContent.toLowerCase().includes(term) ? '' : 'none';
+        });
+    }
+
+    function openManualEntryModal() { document.getElementById('manualEntryModal').style.display = 'block'; }
+    function closeManualEntryModal() { document.getElementById('manualEntryModal').style.display = 'none'; document.getElementById('manualEntryForm').reset(); }
+
+    document.getElementById('manualEntryForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const f = new FormData(e.target);
+        const newPayment = {
+            date: new Date().toISOString(),
+            name: f.get('name'),
+            houseNumber: f.get('houseNumber'),
+            amount: parseFloat(f.get('amount')),
+            paymentType: f.get('paymentType'),
+            otherDetails: f.get('otherDetails') || '',
+            whatsappNumber: f.get('whatsappNumber'),
+            status: 'Paid',
+            receipt: ''
+        };
+        try {
+            await fetch('https://bilal87.app.n8n.cloud/webhook/dashboard-data', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(newPayment)
+})
+.then(res => res.json())
+.then(data => {
+    alert('Payment sent successfully!');
+    refreshData();
+    closeManualEntryModal();
+})
+.catch(err => {
+    console.error('Error sending payment:', err);
+    alert('Failed to send payment. Check console.');
+});
+
+            paymentsData.push(newPayment);
+            refreshData();
+            closeManualEntryModal();
+            alert('Payment added successfully!');
+        } catch(err) {
+            console.error(err);
+            alert('Error sending payment. Check console.');
+        }
+    });
+
+    function sendReminders() { alert('WhatsApp reminders sent to all defaulters!'); }
+    function sendIndividualReminder(houseNumber) { alert(`WhatsApp reminder sent to House ${houseNumber}!`); }
+
+    // Initial load
+    refreshData();
+</script>
+</body>
+</html>
